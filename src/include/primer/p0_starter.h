@@ -226,8 +226,8 @@ class RowMatrixOperations {
    */
   static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
-    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetRowCount() != matrixB->GetRowCount() 
-      || matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
+    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetRowCount() != matrixB->GetRowCount() ||
+        matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
     int rows = matrixA->GetRowCount();
