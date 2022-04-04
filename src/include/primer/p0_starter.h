@@ -226,7 +226,8 @@ class RowMatrixOperations {
    */
   static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
-    if (matrixA->GetRowCount() != matrixB->GetRowCount() || matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
+    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetRowCount() != matrixB->GetRowCount() 
+      || matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
     int rows = matrixA->GetRowCount();
@@ -249,6 +250,9 @@ class RowMatrixOperations {
    */
   static std::unique_ptr<RowMatrix<T>> Multiply(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
+    if (matrixA == nullptr || matrixB == nullptr) {
+      return std::unique_ptr<RowMatrix<T>>(nullptr);
+    }
     int rows_a = matrixA->GetRowCount();
     int cols_a = matrixA->GetColumnCount();
     int rows_b = matrixB->GetRowCount();
@@ -280,26 +284,12 @@ class RowMatrixOperations {
   static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB,
                                             const RowMatrix<T> *matrixC) {
     // TODO(P0): Add implementation
-    int rows_a = matrixA->GetRowCount();
-    int cols_a = matrixA->GetColumnCount();
-    int rows_b = matrixB->GetRowCount();
-    int cols_b = matrixB->GetColumnCount();
-    int rows_c = matrixC->GetRowCount();
-    int cols_c = matrixC->GetColumnCount();
-    if (cols_a != rows_b || rows_a != rows_c || cols_a != cols_c) {
-      return std::unique_ptr<RowMatrix<T>>(nullptr);
+    auto multiply_ptr = Multiply(matrixA, matrixB);
+    if (multiply_ptr == nullptr) {
+      return multiply_ptr;
     }
-    std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
-    for (int i = 0; i < rows_a; i++) {
-      for (int j = 0; j < cols_b; j++) {
-        T val = matrixA->GetElement(i, 0) * matrixB->GetElement(0, j);
-        for (int k = 1; k < cols_a; k++) {
-          val += matrixA->GetElement(i, k) * matrixB->GetElement(k, j);
-        }
-        row_matrix_ptr->SetElement(i, j, val + matrixC->GetElement(i, j));
-      }
-    }
-    return row_matrix_ptr;
+    auto add_ptr = Add(multiply_ptr->get(), matrixC);
+    return add_ptr;
   }
 };
 }  // namespace bustub
