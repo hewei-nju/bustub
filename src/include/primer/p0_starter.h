@@ -292,7 +292,7 @@ class RowMatrixOperations {
     std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
     for (int i = 0; i < rows_a; i++) {
       for (int j = 0; j < cols_b; j++) {
-        T val = matrixA[i][0] * matrixB[0][j];
+        T val = matrixA->getElement(i, 0) * matrixB->getElement(0, j);
         for (int k = 1; k < cols_a; k++) {
           val += matrixA->getElement(i, k) * matrixB->getElement(k, j);
         }
