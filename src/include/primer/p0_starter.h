@@ -280,26 +280,13 @@ class RowMatrixOperations {
   static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB,
                                             const RowMatrix<T> *matrixC) {
     // TODO(P0): Add implementation
-    int rows_a = matrixA->GetRowCount();
-    int cols_a = matrixA->GetColumnCount();
-    int rows_b = matrixB->GetRowCount();
-    int cols_b = matrixB->GetColumnCount();
-    int rows_c = matrixC->GetRowCount();
-    int cols_c = matrixC->GetColumnCount();
-    if (cols_a != rows_b || rows_a != rows_c || cols_a != cols_c) {
+    if (matrixA->GetColumnCount() != matrixB->GetRowCount() || matrixA->GetRowCount() != matrixC->GetRowCount() ||
+        matrixB->GetColumnCount() != matrixC->GetColumnCount()) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
-    for (int i = 0; i < rows_a; i++) {
-      for (int j = 0; j < cols_b; j++) {
-        for (int k = 1; k < cols_a; k++) {
-          T val = matrixA->GetElement(i, 0) * matrixB->GetElement(0, j);
-          row_matrix_ptr->SetElement(i, j, row_matrix_ptr->GetElement(i, j) + val);
-        }
-        row_matrix_ptr->SetElement(i, j, row_matrix_ptr->GetElement(i, j) + matrixC->GetElement(i, j));
-      }
-    }
-    return row_matrix_ptr;
+    std::unique_ptr<RowMatrix<T>> multiply_ptr = Multiply(matrixA, matrixB);
+    const RowMatrix<T> *raw_ptr = multiply_ptr.get();
+    return Add(raw_ptr, matrixC);
   }
 };
 }  // namespace bustub
