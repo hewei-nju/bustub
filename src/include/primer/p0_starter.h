@@ -221,13 +221,12 @@ class RowMatrixOperations {
    * Compute (`matrixA` + `matrixB`) and return the result.
    * Return `nullptr` if dimensions mismatch for input matrices.
    * @param matrixA Input matrix
-   * @param matrixB Input matrix
+   * @param matrixB Input matrixr
    * @return The result of matrix addition
    */
   static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
-    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetRowCount() != matrixB->GetRowCount() ||
-        matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
+    if (matrixA->GetRowCount() != matrixB->GetRowCount() || matrixA->GetColumnCount() != matrixB->GetColumnCount()) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
     int rows = matrixA->GetRowCount();
@@ -250,12 +249,13 @@ class RowMatrixOperations {
    */
   static std::unique_ptr<RowMatrix<T>> Multiply(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
-    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetColumnCount() != matrixB->GetRowCount()) {
-      return std::unique_ptr<RowMatrix<T>>(nullptr);
-    }
     int rows_a = matrixA->GetRowCount();
     int cols_a = matrixA->GetColumnCount();
+    int rows_b = matrixB->GetRowCount();
     int cols_b = matrixB->GetColumnCount();
+    if (cols_a != rows_b) {
+      return std::unique_ptr<RowMatrix<T>>(nullptr);
+    }
     std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
     for (int i = 0; i < rows_a; i++) {
       for (int j = 0; j < cols_b; j++) {
@@ -280,12 +280,26 @@ class RowMatrixOperations {
   static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB,
                                             const RowMatrix<T> *matrixC) {
     // TODO(P0): Add implementation
-    std::unique_ptr<RowMatrix<T>> multiply_ptr = Multiply(matrixA, matrixB);
-    if (multiply_ptr == nullptr) {
-      return multiply_ptr;
+    int rows_a = matrixA->GetRowCount();
+    int cols_a = matrixA->GetColumnCount();
+    int rows_b = matrixB->GetRowCount();
+    int cols_b = matrixB->GetColumnCount();
+    int rows_c = matrixC->GetRowCount();
+    int cols_c = matrixC->GetColumnCount();
+    if (cols_a != rows_b || rows_a != rows_c || cols_a != cols_c) {
+      return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    std::unique_ptr<RowMatrix<T>> add_ptr = Add(multiply_ptr->get(), matrixC);
-    return add_ptr;
+    std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
+    for (int i = 0; i < rows_a; i++) {
+      for (int j = 0; j < cols_b; j++) {
+        for (int k = 1; k < cols_a; k++) {
+          T val = matrixA->GetElement(i, 0) * matrixB->GetElement(0, j);
+          row_matrix_ptr->SetElement(i, j, row_matrix_ptr->GetElement(i, j) + val);
+        }
+        row_matrix_ptr->SetElement(i, j, row_matrix_ptr->GetElement(i, j) + matrixC->GetElement(i, j));
+      }
+    }
+    return row_matrix_ptr;
   }
 };
 }  // namespace bustub
