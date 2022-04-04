@@ -280,11 +280,11 @@ class RowMatrixOperations {
   static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB,
                                             const RowMatrix<T> *matrixC) {
     // TODO(P0): Add implementation
-    auto multiply_ptr = Multiply(matrixA, matrixB);
+    std::unique_ptr<RowMatrix<T>> multiply_ptr = Multiply(matrixA, matrixB);
     if (multiply_ptr == nullptr) {
       return multiply_ptr;
     }
-    auto add_ptr = Add(multiply_ptr->get(), matrixC);
+    std::unique_ptr<RowMatrix<T>> add_ptr = Add(multiply_ptr->get(), matrixC);
     return add_ptr;
   }
 };
