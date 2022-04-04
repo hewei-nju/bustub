@@ -221,7 +221,7 @@ class RowMatrixOperations {
    * Compute (`matrixA` + `matrixB`) and return the result.
    * Return `nullptr` if dimensions mismatch for input matrices.
    * @param matrixA Input matrix
-   * @param matrixB Input matrixr
+   * @param matrixB Input matrix
    * @return The result of matrix addition
    */
   static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
@@ -250,16 +250,12 @@ class RowMatrixOperations {
    */
   static std::unique_ptr<RowMatrix<T>> Multiply(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
     // TODO(P0): Add implementation
-    if (matrixA == nullptr || matrixB == nullptr) {
+    if (matrixA == nullptr || matrixB == nullptr || matrixA->GetColumnCount() != matrixB->GetRowCount()) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
     int rows_a = matrixA->GetRowCount();
     int cols_a = matrixA->GetColumnCount();
-    int rows_b = matrixB->GetRowCount();
     int cols_b = matrixB->GetColumnCount();
-    if (cols_a != rows_b) {
-      return std::unique_ptr<RowMatrix<T>>(nullptr);
-    }
     std::unique_ptr<RowMatrix<T>> row_matrix_ptr = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
     for (int i = 0; i < rows_a; i++) {
       for (int j = 0; j < cols_b; j++) {
