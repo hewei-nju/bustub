@@ -32,7 +32,6 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
 
 void LRUReplacer::Pin(frame_id_t frame_id) {
   std::lock_guard<std::mutex> lock(this->latch_);
-
   if (this->lru_.find(frame_id) != this->lru_.end()) {
     this->lst_.erase(this->lru_[frame_id]);
     this->lru_.erase(frame_id);
@@ -40,6 +39,7 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
 }
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
+  std::lock_guard<std::mutex> lock(this->latch_);
   if (this->lru_.find(frame_id) == this->lru_.end()) {
     if (this->num_pages_ == this->lst_.size()) {
       this->lru_.erase(this->lst_.back());
