@@ -49,11 +49,26 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
-  return false;
+  assert(page_id != INVALID_PAGE_ID);
+  this->latch_.lock();
+  if (this->page_table_.find(page_id) == this->page_table_.end()) {
+    this->latch_.unlock();
+    return false;
+  }
+  frame_id_t frame_id = this->page_table_[page_id];
+  if (this->pages_[frame_id].IsDirty()) {
+    this->pages_[frame_id].is_dirty_ = false;
+    this->disk_manager_->WritePage(page_id, static_cast<const char *>(this->pages_[frame_id].data_));
+  }
+  this->latch_.unlock();
+  return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
+  for (const auto &entry : this->page_table_) {
+    this->FlushPgImp(entry.first);
+  }
 }
 
 Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
@@ -62,7 +77,41 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  return nullptr;
+  this->latch_.lock();
+  if (this->free_list_.empty() && this->replacer_->Size() == 0) {
+    *page_id = INVALID_PAGE_ID;
+    this->latch_.unlock();
+    return nullptr;
+  }
+  frame_id_t frame_id = 0;
+  *page_id = this->AllocatePage();
+  if (!this->free_list_.empty()) {
+    frame_id = this->free_list_.front();
+    this->free_list_.pop_front();
+  } else {
+    this->replacer_->Victim(&frame_id);
+    if (this->pages_[frame_id].IsDirty()) {
+      this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(), this->pages_[frame_id].GetData());
+
+      // Another way to write back
+      // std::mutex mtx;
+      // mtx.lock();
+      // this->latch_.unlock();
+      // this->FlushPgImp(this->pages_[frame_id].GetPageId());  // Because of the latch_, this will be blocked!
+      // this->latch_.lock();
+      // mtx.unlock();
+    }
+
+  }
+  this->page_table_.erase(this->pages_[frame_id].GetPageId());
+  this->page_table_[*page_id] = frame_id;
+  this->pages_[frame_id].page_id_ = *page_id;
+  this->pages_[frame_id].is_dirty_ = false;
+  this->pages_[frame_id].pin_count_ = 1;
+  this->replacer_->Pin(frame_id);
+  memset(this->pages_[frame_id].data_, '\0', PAGE_SIZE);
+  this->latch_.unlock();
+  return &this->pages_[frame_id];
 }
 
 Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
@@ -73,7 +122,38 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  return nullptr;
+  this->latch_.lock();
+  frame_id_t frame_id = 0;
+  if (this->page_table_.find(page_id) != this->page_table_.end()) {
+    frame_id = this->page_table_[page_id];
+    this->pages_[frame_id].pin_count_ += 1;
+    this->replacer_->Pin(frame_id);
+    this->latch_.unlock();
+    return &this->pages_[frame_id];
+  }
+  if (!this->free_list_.empty()) {
+    frame_id = this->free_list_.front();
+    this->free_list_.pop_front();
+  } else if (this->replacer_->Size() > 0) {
+    this->replacer_->Victim(&frame_id);
+  } else {
+    this->latch_.unlock();
+    return nullptr;
+  }
+  if (this->pages_[frame_id].IsDirty()) {
+    this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(), 
+      static_cast<const char *>(this->pages_[frame_id].data_));
+    this->pages_[frame_id].is_dirty_ = false;
+  }
+  this->page_table_.erase(this->pages_[frame_id].GetPageId());
+  this->page_table_[page_id] = frame_id;
+  this->pages_[frame_id].page_id_ = page_id;
+  this->pages_[frame_id].is_dirty_ = false;
+  this->pages_[frame_id].pin_count_ = 1;
+  this->replacer_->Pin(frame_id);
+  this->disk_manager_->ReadPage(page_id, this->pages_[frame_id].data_);
+  this->latch_.unlock();
+  return &this->pages_[frame_id];
 }
 
 bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
@@ -82,10 +162,49 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // 1.   If P does not exist, return true.
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
+  this->latch_.lock();
+  if (this->page_table_.find(page_id) == this->page_table_.end()) {
+    this->latch_.unlock();
+    return true;
+  }
+  frame_id_t frame_id = this->page_table_[page_id];
+  if (this->pages_[frame_id].GetPinCount() > 0) {
+    this->latch_.unlock();
+    return false;
+  }
+  this->page_table_.erase(this->pages_[frame_id].GetPageId());
+  this->pages_[frame_id].page_id_ = INVALID_PAGE_ID;
+  this->pages_[frame_id].is_dirty_ = false;
+  this->pages_[frame_id].pin_count_ = 0;
+  memset(this->pages_[frame_id].data_, sizeof(char), sizeof(this->pages_[frame_id].data_));
+  this->page_table_.erase(page_id);
+  this->free_list_.push_back(frame_id);
+  this->DeallocatePage(page_id);
+  this->latch_.lock();
   return false;
 }
 
-bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) { return false; }
+bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
+  this->latch_.lock();
+  if (this->page_table_.find(page_id) == this->page_table_.end()) {
+    this->latch_.unlock();
+    return false;
+  }
+  frame_id_t frame_id = this->page_table_[page_id];
+  if (is_dirty) {
+    this->pages_[frame_id].is_dirty_ = is_dirty;
+  }
+  if (this->pages_[frame_id].GetPinCount() <= 0) {
+    this->latch_.unlock();
+    return false;
+  }
+  this->pages_[frame_id].pin_count_ -= 1;
+  if (this->pages_[frame_id].GetPinCount() == 0) {
+    this->replacer_->Unpin(frame_id);
+  }
+  this->latch_.unlock();
+  return true;
+}
 
 page_id_t BufferPoolManagerInstance::AllocatePage() {
   const page_id_t next_page_id = next_page_id_;
