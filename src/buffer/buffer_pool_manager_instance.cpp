@@ -50,8 +50,6 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
   std::lock_guard<std::mutex> lock(this->latch_);
-
-  assert(page_id != INVALID_PAGE_ID);
   if (this->page_table_.find(page_id) == this->page_table_.end()) {
     return false;
   }
@@ -89,15 +87,8 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   } else {
     this->replacer_->Victim(&frame_id);
     if (this->pages_[frame_id].IsDirty()) {
+      this->pages_[frame_id].is_dirty_ = false;
       this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(), this->pages_[frame_id].GetData());
-
-      // Another way to write back
-      // std::mutex mtx;
-      // mtx.lock();
-      // this->latch_.unlock();
-      // this->FlushPgImp(this->pages_[frame_id].GetPageId());  // Because of the latch_, this will be blocked!
-      // this->latch_.lock();
-      // mtx.unlock();
     }
   }
   this->page_table_.erase(this->pages_[frame_id].GetPageId());
@@ -135,9 +126,10 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     return nullptr;
   }
   if (this->pages_[frame_id].IsDirty()) {
+    this->pages_[frame_id].is_dirty_ = false;
+
     this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(),
                                    static_cast<const char *>(this->pages_[frame_id].data_));
-    this->pages_[frame_id].is_dirty_ = false;
   }
   this->page_table_.erase(this->pages_[frame_id].GetPageId());
   this->page_table_[page_id] = frame_id;
@@ -163,11 +155,10 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   if (this->pages_[frame_id].GetPinCount() > 0) {
     return false;
   }
-  this->page_table_.erase(this->pages_[frame_id].GetPageId());
   this->pages_[frame_id].page_id_ = INVALID_PAGE_ID;
   this->pages_[frame_id].is_dirty_ = false;
   this->pages_[frame_id].pin_count_ = 0;
-  memset(this->pages_[frame_id].data_, sizeof(char), sizeof(this->pages_[frame_id].data_));
+  memset(this->pages_[frame_id].data_, '\0', sizeof(this->pages_[frame_id].data_));
   this->page_table_.erase(page_id);
   this->free_list_.push_back(frame_id);
   this->DeallocatePage(page_id);

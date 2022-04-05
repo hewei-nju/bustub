@@ -56,7 +56,8 @@ Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
   if (this->buffer_pool_managers_.empty()) {
     return nullptr;
   }
-  BufferPoolManager *buffer_pool_manager = this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
+  BufferPoolManager *buffer_pool_manager =
+      this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
   return buffer_pool_manager->FetchPage(page_id);
 }
 
@@ -66,7 +67,8 @@ bool ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   if (this->buffer_pool_managers_.empty()) {
     return false;
   }
-  BufferPoolManager *buffer_pool_manager = this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
+  BufferPoolManager *buffer_pool_manager =
+      this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
   return buffer_pool_manager->UnpinPage(page_id, is_dirty);
 }
 
@@ -77,7 +79,8 @@ bool ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) {
   if (this->buffer_pool_managers_.empty()) {
     return false;
   }
-  BufferPoolManager *buffer_pool_manager = this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
+  BufferPoolManager *buffer_pool_manager =
+      this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
   return buffer_pool_manager->FlushPage(page_id);
 }
 
@@ -103,7 +106,8 @@ bool ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) {
   if (this->buffer_pool_managers_.empty()) {
     return false;
   }
-  BufferPoolManager *buffer_pool_manager = this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
+  BufferPoolManager *buffer_pool_manager =
+      this->buffer_pool_managers_[page_id % this->buffer_pool_managers_.size()].get();
   return buffer_pool_manager->DeletePage(page_id);
 }
 
