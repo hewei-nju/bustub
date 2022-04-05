@@ -12,6 +12,10 @@
 
 #pragma once
 
+#include <memory>
+#include <mutex>  //NOLINT
+#include <vector>
+
 #include "buffer/buffer_pool_manager.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
@@ -88,6 +92,9 @@ class ParallelBufferPoolManager : public BufferPoolManager {
   void FlushAllPgsImp() override;
 
   /** Store all buffer pool manager instances. */
-  std::vector<std::unique_ptr<BufferPoolManager>> bufferPoolManagers_;
+  std::vector<std::unique_ptr<BufferPoolManager>> buffer_pool_managers_;
+
+  /** Latch protects sharing data structures. */
+  std::mutex latch_;
 };
 }  // namespace bustub

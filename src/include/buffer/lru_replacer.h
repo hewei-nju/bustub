@@ -48,7 +48,7 @@ class LRUReplacer : public Replacer {
 
  private:
   // TODO(student): implement me!
-  std::mutex mtx_;
+  std::mutex latch_;
   size_t num_pages_;           // Maximum number of pages the LRUReplacer will be required to store
   std::list<frame_id_t> lst_;  // Used for recording the sequences
   std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> lru_;  // LRU

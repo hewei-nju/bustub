@@ -74,6 +74,7 @@ TEST(ParallelBufferPoolManagerTest, BinaryDataTest) {
     bpm->UnpinPage(page_id_temp, false);
   }
 
+
   // Scenario: We should be able to fetch the data we wrote a while ago.
   page0 = bpm->FetchPage(0);
   EXPECT_EQ(0, memcmp(page0->GetData(), random_binary_data, PAGE_SIZE));
