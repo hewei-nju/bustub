@@ -52,7 +52,6 @@ BufferPoolManager *ParallelBufferPoolManager::GetBufferPoolManager(page_id_t pag
 Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
   // Fetch page for page_id from responsible BufferPoolManagerInstance
   std::lock_guard<std::mutex> lock(this->latch_);
-
   if (this->buffer_pool_managers_.empty()) {
     return nullptr;
   }
@@ -75,7 +74,6 @@ bool ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) {
 bool ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) {
   // Flush page_id from responsible BufferPoolManagerInstance
   std::lock_guard<std::mutex> lock(this->latch_);
-
   if (this->buffer_pool_managers_.empty()) {
     return false;
   }

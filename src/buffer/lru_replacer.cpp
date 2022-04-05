@@ -21,7 +21,7 @@ LRUReplacer::~LRUReplacer() = default;
 bool LRUReplacer::Victim(frame_id_t *frame_id) {
   std::lock_guard<std::mutex> lock(this->latch_);
   if (this->lst_.empty()) {
-    frame_id = nullptr;
+    // frame_id = nullptr;  // this will make memory leak
     return false;
   }
   *frame_id = this->lst_.back();
