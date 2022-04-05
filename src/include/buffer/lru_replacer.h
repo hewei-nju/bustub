@@ -14,8 +14,8 @@
 
 #include <list>
 #include <mutex>  // NOLINT
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "buffer/replacer.h"
 #include "common/config.h"
@@ -49,7 +49,7 @@ class LRUReplacer : public Replacer {
  private:
   // TODO(student): implement me!
   std::mutex mtx_;
-  size_t num_pages_;  // Maximum number of pages the LRUReplacer will be required to store
+  size_t num_pages_;           // Maximum number of pages the LRUReplacer will be required to store
   std::list<frame_id_t> lst_;  // Used for recording the sequences
   std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> lru_;  // LRU
 };

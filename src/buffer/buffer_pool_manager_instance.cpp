@@ -101,7 +101,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
       // this->latch_.lock();
       // mtx.unlock();
     }
-
   }
   this->page_table_.erase(this->pages_[frame_id].GetPageId());
   this->page_table_[*page_id] = frame_id;
@@ -141,8 +140,8 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     return nullptr;
   }
   if (this->pages_[frame_id].IsDirty()) {
-    this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(), 
-      static_cast<const char *>(this->pages_[frame_id].data_));
+    this->disk_manager_->WritePage(this->pages_[frame_id].GetPageId(),
+                                   static_cast<const char *>(this->pages_[frame_id].data_));
     this->pages_[frame_id].is_dirty_ = false;
   }
   this->page_table_.erase(this->pages_[frame_id].GetPageId());
