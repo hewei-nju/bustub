@@ -152,17 +152,17 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
     return true;
   }
   frame_id_t frame_id = this->page_table_[page_id];
-  if (this->pages_[frame_id].GetPinCount() > 0) {
+  if (this->pages_[frame_id].GetPinCount() != 0) {
     return false;
   }
   this->pages_[frame_id].page_id_ = INVALID_PAGE_ID;
   this->pages_[frame_id].is_dirty_ = false;
   this->pages_[frame_id].pin_count_ = 0;
-  memset(this->pages_[frame_id].data_, '\0', sizeof(this->pages_[frame_id].data_));
+  memset(this->pages_[frame_id].data_, '\0', PAGE_SIZE);
   this->page_table_.erase(page_id);
   this->free_list_.push_back(frame_id);
   this->DeallocatePage(page_id);
-  return false;
+  return true;
 }
 
 bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
