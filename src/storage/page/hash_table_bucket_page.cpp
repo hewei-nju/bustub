@@ -36,7 +36,7 @@ bool HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
   const uint32_t mask[8] = {128, 64, 32, 16, 8, 4, 2, 1};
   size_t idx = BUCKET_ARRAY_SIZE;
   for (size_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
-    if ((readable_[i / 8] & mask[i % 8]) != 0 && cmp(key, array_[i].first) == 0) {
+    if ((readable_[i / 8] & mask[i % 8]) != 0 && cmp(key, array_[i].first) == 0 && value == array_[i].second) {
       return false;
     }
     if ((readable_[i / 8] & mask[i % 8]) == 0 && idx == BUCKET_ARRAY_SIZE) {
