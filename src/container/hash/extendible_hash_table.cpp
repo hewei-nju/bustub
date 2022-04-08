@@ -72,7 +72,8 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   this->table_latch_.RLock();
   HashTableDirectoryPage *dir_page = this->FetchDirectoryPage();
   uint32_t bucket_page_id = this->KeyToPageId(key, dir_page);
-  HashTableBucketPage<KeyType, ValueType, KeyComparator> * hash_table_bucket_page = this->FetchBucketPage(bucket_page_id);
+  HashTableBucketPage<KeyType, ValueType, KeyComparator> *hash_table_bucket_page =
+      this->FetchBucketPage(bucket_page_id);
   bool ret = hash_table_bucket_page->GetValue(key, this->comparator_, result);
   this->table_latch_.RUnlock();
   return ret;
@@ -86,7 +87,8 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   this->table_latch_.RLock();
   HashTableDirectoryPage *dir_page = this->FetchDirectoryPage();
   uint32_t bucket_page_id = this->KeyToPageId(key, dir_page);
-  HashTableBucketPage<KeyType, ValueType, KeyComparator> * hash_table_bucket_page = this->FetchBucketPage(bucket_page_id);
+  HashTableBucketPage<KeyType, ValueType, KeyComparator> *hash_table_bucket_page =
+      this->FetchBucketPage(bucket_page_id);
   bool ret = false;
   if (hash_table_bucket_page->IsFull()) {
     ret = this->SplitInsert(transaction, key, value);
@@ -103,7 +105,7 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
  * 1.1 extend the directory, then extend the bucket
  * 2. if the bucket local depth != the drectory global depth
  * 2.1 just need extend the bucket
-*/
+ */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
   bool ret = false;
@@ -123,8 +125,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     for (size_t i = dir_page->Size() / 2 - 1; i >= 0; i--) {
       dir_page->SetBucketPageId(i + (1 << dir_page->GetGlobalDepth()), dir_page->GetBucketPageId(i));
       if (dir_page->GetLocalHighBit(i) != dir_page->GetLocalHighBit(bucket_idx) &&
-       dir_page->GetBucketPageId(i) == bucket_page_id) {
-         dir_page->SetBucketPageId(i, new_page->GetPageId());
+          dir_page->GetBucketPageId(i) == bucket_page_id) {
+        dir_page->SetBucketPageId(i, new_page->GetPageId());
         dir_page->IncrLocalDepth(i);
       }
     }
@@ -146,7 +148,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     bucket_page->RemoveAt(i);
   }
 
-  for (const auto & [k, v] : key_values) {
+  for (const auto &[k, v] : key_values) {
     bucket_page_id = this->KeyToPageId(k, dir_page);
     ret = this->FetchBucketPage(bucket_page_id)->Insert(k, v, this->comparator_);
     if (!ret) {
@@ -175,10 +177,10 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   }
   // Splited image
   for (size_t i = 0; i < dir_page->Size() && merge_flag; i++) {
-    if (dir_page->GetBucketPageId(i) != bucket_page_id 
-      && (i & dir_page->GetLocalDepthMask(i)) == (bucket_idx & dir_page->GetLocalDepthMask(bucket_idx))) {
-        break;
-      }
+    if (dir_page->GetBucketPageId(i) != bucket_page_id &&
+        (i & dir_page->GetLocalDepthMask(i)) == (bucket_idx & dir_page->GetLocalDepthMask(bucket_idx))) {
+      break;
+    }
   }
 
   if (merge_flag) {
