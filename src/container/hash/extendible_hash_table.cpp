@@ -27,6 +27,20 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   //  implement me!
+  Page *new_dir_page = buffer_pool_manager_->NewPage(&directory_page_id_);
+  assert(new_dir_page != nullptr);
+  buffer_pool_manager_->UnpinPage(directory_page_id_, true); // TODO: True or False ?
+  HashTableDirectoryPage *dir_page = reinterpret_cast<HashTableDirectoryPage *>(new_dir_page);
+
+  page_id_t bucket_page_id = INVALID_PAGE_ID;
+  Page *new_bucket_page = buffer_pool_manager_->NewPage(&bucket_page_id);
+  assert(new_bucket_page != nullptr);
+  buffer_pool_manager_->UnpinPage(bucket_page_id, true);
+  // HASH_TABLE_BUCKET_TYPE *bucket_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(new_bucket_page);
+
+  dir_page->SetBucketPageId(0, bucket_page_id);
+  dir_page->SetLocalDepth(bucket_page_id, 0);
+  
 }
 
 /*****************************************************************************
