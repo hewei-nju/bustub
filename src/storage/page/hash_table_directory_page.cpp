@@ -43,7 +43,7 @@ uint32_t HashTableDirectoryPage::Size() { return static_cast<uint32_t>(1 << glob
 bool HashTableDirectoryPage::CanShrink() {
   bool ret = true;
   for (size_t i = 0; i < this->Size(); i++) {
-    if (local_depths_[i] >= global_depth_) {
+    if (local_depths_[i] == global_depth_) {
       ret = false;
       break;
     }
@@ -66,7 +66,7 @@ void HashTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) { local_depths_
 void HashTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) { local_depths_[bucket_idx]--; }
 
 uint32_t HashTableDirectoryPage::GetLocalHighBit(uint32_t bucket_idx) {
-  return static_cast<uint32_t>(1 << local_depths_[bucket_idx]);
+  return static_cast<uint32_t>(1 << (local_depths_[bucket_idx] - 1));
 }
 
 /**
