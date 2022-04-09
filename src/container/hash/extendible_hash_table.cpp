@@ -123,7 +123,7 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
 
   // Fetch bucket page
   uint32_t bucket_page_id = KeyToPageId(key, dir_page);
-  HASH_TABLE_BUCKET_TYPE *hash_table_bucket_page = this->FetchBucketPage(bucket_page_id);
+  HASH_TABLE_BUCKET_TYPE *hash_table_bucket_page = FetchBucketPage(bucket_page_id);
 
   // Insert key and value
   bool ret = false;
@@ -178,31 +178,36 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     }
 
     // Extend directory and bucket
-    dir_page->IncrGlobalDepth();
-    for (uint32_t i = dir_page->Size() / 2 - 1; i >= 0; i--) {
+    for (uint32_t i = dir_page->Size() - 1; i >= 0; i--) {
+      if (dir_page->Size() == 1) {
+        dir_page->SetBucketPageId(1, new_page_id);
+        dir_page->IncrLocalDepth(0);
+        dir_page->IncrLocalDepth(1);
+        break;
+      }
       dir_page->SetBucketPageId(i + (1 << dir_page->GetGlobalDepth()), dir_page->GetBucketPageId(i));
-
+      dir_page->SetLocalDepth(i + (1 << dir_page->GetGlobalDepth()), dir_page->GetLocalDepth(i));
       if (dir_page->GetBucketPageId(i) == bucket_page_id) {
+        uint32_t new_page_idx = i + (1 << dir_page->GetGlobalDepth());
+        dir_page->SetBucketPageId(new_page_idx, new_page_id);
         dir_page->IncrLocalDepth(i);
-
-        if (dir_page->GetLocalHighBit(i) != dir_page->GetLocalHighBit(bucket_idx)) {
-          dir_page->SetBucketPageId(i, new_page->GetPageId());
-        }
+        dir_page->IncrLocalDepth(new_page_idx);
       }
 
       if (i == 0) {
         break;
       }
     }
+    dir_page->IncrGlobalDepth();
   } else {
     // Extend bucket
+    uint32_t local_high_bit = dir_page->GetLocalHighBit(bucket_idx);
     for (uint32_t i = dir_page->Size() - 1; i >= 0; i--) {
       if (dir_page->GetBucketPageId(i) == bucket_page_id) {
-        dir_page->IncrLocalDepth(i);
-
-        if (dir_page->GetLocalHighBit(i) != dir_page->GetLocalHighBit(bucket_idx)) {
-          dir_page->SetBucketPageId(i, new_page->GetPageId());
+        if ((dir_page->GetLocalHighBit(i) & i) != (local_high_bit & bucket_idx)) {
+          dir_page->SetBucketPageId(i, new_page_id);
         }
+        dir_page->IncrLocalDepth(i);
       }
 
       if (i == 0) {
@@ -222,6 +227,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   key_values.back() = {key, value};
 
   // Reinsert key and value into bucket 
+  int i = 0;
   for (const auto &[k, v] : key_values) {
     page_id_t insert_page_id = KeyToPageId(k, dir_page);
     if (insert_page_id == bucket_page_id) {
@@ -235,16 +241,16 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       buffer_pool_manager_->UnpinPage(directory_page_id_, true);
       buffer_pool_manager_->UnpinPage(bucket_page_id, true);
       buffer_pool_manager_->UnpinPage(new_page_id, true);
-
       return ret;
     }
+    i++;
   }
 
   // Unpin directory page, bucket page, new page
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   buffer_pool_manager_->UnpinPage(bucket_page_id, true);
   buffer_pool_manager_->UnpinPage(new_page_id, true);
-
+  ret = true;
   return ret;
 }
 
