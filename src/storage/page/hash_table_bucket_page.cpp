@@ -127,8 +127,8 @@ uint32_t HASH_TABLE_BUCKET_TYPE::NumReadable() {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsEmpty() {
   bool result = true;
-  for (const auto &occupied : occupied_) {
-    if (occupied != 0) {
+  for (const auto &readable : readable_) {
+    if (readable != 0) {
       result = false;
       break;
     }
