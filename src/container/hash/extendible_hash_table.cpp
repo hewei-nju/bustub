@@ -45,7 +45,7 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   }
   dir_page->SetBucketPageId(0, bucket_page_id);
   dir_page->SetLocalDepth(0, 0);
-  
+
   // Unpin directory page and bucket page
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   buffer_pool_manager_->UnpinPage(bucket_page_id, true);
@@ -99,7 +99,7 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   // Fetch bucket page
   uint32_t bucket_page_id = this->KeyToPageId(key, dir_page);
   HASH_TABLE_BUCKET_TYPE *hash_table_bucket_page = FetchBucketPage(bucket_page_id);
-  
+
   // Get value
   bool ret = hash_table_bucket_page->GetValue(key, comparator_, result);
 
@@ -128,7 +128,7 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   // Insert key and value
   bool ret = false;
   if (hash_table_bucket_page->IsFull()) {
-    // Unpin directory page and bucket page 
+    // Unpin directory page and bucket page
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     buffer_pool_manager_->UnpinPage(bucket_page_id, true);
 
@@ -137,7 +137,7 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
     // Insert key and value
     ret = hash_table_bucket_page->Insert(key, value, comparator_);
 
-    // Unpin directory page and bucket page 
+    // Unpin directory page and bucket page
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     buffer_pool_manager_->UnpinPage(bucket_page_id, true);
   }
@@ -226,8 +226,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   // Collect new key and value
   key_values.back() = {key, value};
 
-  // Reinsert key and value into bucket 
-  int i = 0;
+  // Reinsert key and value into bucket
   for (const auto &[k, v] : key_values) {
     page_id_t insert_page_id = KeyToPageId(k, dir_page);
     if (insert_page_id == bucket_page_id) {
@@ -243,7 +242,6 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       buffer_pool_manager_->UnpinPage(new_page_id, true);
       return ret;
     }
-    i++;
   }
 
   // Unpin directory page, bucket page, new page
@@ -274,21 +272,30 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   ret = bucket_page->Remove(key, value, this->comparator_);
 
   bool merge_flag = true;
-  if (!bucket_page->IsEmpty() && dir_page->GetLocalDepth(bucket_idx) == 0) {
+  if (!bucket_page->IsEmpty() || dir_page->GetLocalDepth(bucket_idx) == 0) {
     merge_flag = false;
   }
 
   // Splited image
+  uint32_t local_high_bit = dir_page->GetLocalHighBit(bucket_idx) >> 1;
   for (uint32_t i = 0; i < dir_page->Size() && merge_flag; i++) {
-    if (dir_page->GetBucketPageId(i) != bucket_page_id &&
-        (i & dir_page->GetLocalDepthMask(i)) == (bucket_idx & dir_page->GetLocalDepthMask(bucket_idx))) {
-          merge_flag = false;
+    if (dir_page->GetBucketPageId(i) == bucket_page_id) {
+      uint32_t image_bucket_idx = 0;
+      uint32_t local_high_val = i & local_high_bit;
+      if (local_high_val != 0) {
+        image_bucket_idx = i - local_high_bit;
+      } else {
+        image_bucket_idx = i + local_high_bit;
+      }
+      if (dir_page->GetLocalDepth(image_bucket_idx) != dir_page->GetLocalDepth(bucket_idx)) {
+        merge_flag = false;
+      }
     }
   }
 
-    // Unpin directory page and bucket page
-    buffer_pool_manager_->UnpinPage(directory_page_id_, true);
-    buffer_pool_manager_->UnpinPage(bucket_page_id, true);
+  // Unpin directory page and bucket page
+  buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+  buffer_pool_manager_->UnpinPage(bucket_page_id, true);
 
   if (merge_flag) {
     // Merge image bucket
@@ -309,11 +316,13 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
 
   uint32_t bucket_idx = (Hash(key) & dir_page->GetGlobalDepthMask());
   page_id_t bucket_page_id = KeyToPageId(key, dir_page);
-  uint32_t image_bucket_idx = 0;
+
+  uint32_t local_high_bit = dir_page->GetLocalHighBit(bucket_idx) >> 1;
   for (uint32_t i = 0; i < dir_page->Size(); i++) {
-    if (dir_page->GetBucketPageId(i) == bucket_page_id && dir_page->GetLocalHighBit(i) == dir_page->GetLocalHighBit(bucket_idx)) {
-      uint32_t local_high_bit = dir_page->GetLocalHighBit(i);
-      if (local_high_bit != 0) {
+    if (dir_page->GetBucketPageId(i) == bucket_page_id) {
+      uint32_t image_bucket_idx = 0;
+      uint32_t local_high_val = i & local_high_bit;
+      if (local_high_val != 0) {
         image_bucket_idx = i - local_high_bit;
       } else {
         image_bucket_idx = i + local_high_bit;
