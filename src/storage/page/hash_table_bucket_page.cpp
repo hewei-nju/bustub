@@ -109,8 +109,8 @@ void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsFull() {
   int result = 0;
-  for (const auto &occupied : occupied_) {
-    result += std::bitset<32>(occupied).count();
+  for (const auto &readable : readable_) {
+    result += std::bitset<32>(readable).count();
   }
   return result == BUCKET_ARRAY_SIZE;
 }
