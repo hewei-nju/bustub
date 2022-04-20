@@ -14,10 +14,37 @@
 
 namespace bustub {
 
-SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan) : AbstractExecutor(exec_ctx) {}
+SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
+    : AbstractExecutor(exec_ctx), plan_(plan), iter_(nullptr, RID{}, nullptr) {}
 
-void SeqScanExecutor::Init() {}
+void SeqScanExecutor::Init() {
+  // So, what should I do?
+  // There is no more field need to init.
+  auto table_oid = plan_->GetTableOid();
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(table_oid);
+  iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
+}
 
-bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) { return false; }
+bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
+  while (iter_ != table_info_->table_->End()) {
+    TableIterator cur = iter_++;
+    Value val = plan_->GetPredicate()->Evaluate(&(*cur), &table_info_->schema_);
+
+    if (val.GetAs<bool>()) {
+      const Schema *output_schema = plan_->OutputSchema();
+
+      std::vector<Value> values;
+      values.reserve(output_schema->GetColumnCount());
+      for (const auto &col : output_schema->GetColumns()) {
+        values.emplace_back(col.GetExpr()->Evaluate(&(*cur), &(table_info_->schema_)));
+      }
+
+      *tuple = Tuple(values, output_schema);
+      *rid = cur->GetRid();
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace bustub
