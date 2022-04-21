@@ -17,8 +17,12 @@
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
+#include "execution/expressions/abstract_expression.h"
+#include "execution/expressions/column_value_expression.h"
+#include "execution/expressions/constant_value_expression.h"
 #include "execution/plans/nested_loop_join_plan.h"
 #include "storage/table/tuple.h"
+#include "type/value_factory.h"
 
 namespace bustub {
 
@@ -38,6 +42,9 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
                          std::unique_ptr<AbstractExecutor> &&left_executor,
                          std::unique_ptr<AbstractExecutor> &&right_executor);
 
+  /** Deconstruct the executor instance */
+  ~NestedLoopJoinExecutor() override;
+
   /** Initialize the join */
   void Init() override;
 
@@ -55,6 +62,12 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
+  /** Left child executor */
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  /** Right child executor */
+  std::unique_ptr<AbstractExecutor> right_executor_;
+  /** Predictor */
+  mutable const AbstractExpression *predictor_;
 };
 
 }  // namespace bustub
