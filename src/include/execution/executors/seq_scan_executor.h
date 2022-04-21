@@ -18,6 +18,9 @@
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/seq_scan_plan.h"
 #include "storage/table/tuple.h"
+#include "execution/expressions/abstract_expression.h"
+#include "execution/expressions/constant_value_expression.h"
+#include "type/value_factory.h"
 
 namespace bustub {
 
@@ -32,6 +35,9 @@ class SeqScanExecutor : public AbstractExecutor {
    * @param plan The sequential scan plan to be executed
    */
   SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan);
+
+  /** Deconstruct the SeqScanExecutor instance */
+  ~SeqScanExecutor() override;
 
   /** Initialize the sequential scan */
   void Init() override;
@@ -54,5 +60,7 @@ class SeqScanExecutor : public AbstractExecutor {
   TableInfo *table_info_{nullptr};
   /** The iterator of the table */
   TableIterator iter_;
+  /** Predictor */
+  mutable const AbstractExpression *predictor_;
 };
 }  // namespace bustub

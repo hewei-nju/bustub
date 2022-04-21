@@ -59,13 +59,18 @@ class ExecutionEngine {
     try {
       Tuple tuple;
       RID rid;
+      auto plan_type = plan->GetType();
       while (executor->Next(&tuple, &rid)) {
+        if (plan_type == PlanType::Insert || plan_type == PlanType::Update || plan_type == PlanType::Delete) {
+          continue;
+        }
         if (result_set != nullptr) {
           result_set->push_back(tuple);
         }
       }
     } catch (Exception &e) {
       // TODO(student): handle exceptions
+      return false;
     }
 
     return true;

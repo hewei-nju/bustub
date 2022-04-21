@@ -15,21 +15,29 @@
 namespace bustub {
 
 SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
-    : AbstractExecutor(exec_ctx), plan_(plan), iter_(nullptr, RID{}, nullptr) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), iter_(nullptr, RID{}, nullptr), predictor_(nullptr) {}
+
+SeqScanExecutor::~SeqScanExecutor() {
+  if (predictor_ != plan_->GetPredicate()) {
+    delete predictor_;
+  }
+}
 
 void SeqScanExecutor::Init() {
-  // So, what should I do?
-  // There is no more field need to init.
   auto table_oid = plan_->GetTableOid();
   table_info_ = exec_ctx_->GetCatalog()->GetTable(table_oid);
   iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
+  predictor_ = plan_->GetPredicate();
+  if (predictor_ == nullptr) {
+    predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));
+  }
 }
 
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   while (iter_ != table_info_->table_->End()) {
     TableIterator cur = iter_++;
-    Value val = plan_->GetPredicate()->Evaluate(&(*cur), &table_info_->schema_);
-
+    
+    Value val = predictor_->Evaluate(&(*cur), &table_info_->schema_);
     if (val.GetAs<bool>()) {
       const Schema *output_schema = plan_->OutputSchema();
 
