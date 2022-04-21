@@ -16,10 +16,10 @@
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
-#include "execution/plans/seq_scan_plan.h"
-#include "storage/table/tuple.h"
 #include "execution/expressions/abstract_expression.h"
 #include "execution/expressions/constant_value_expression.h"
+#include "execution/plans/seq_scan_plan.h"
+#include "storage/table/tuple.h"
 #include "type/value_factory.h"
 
 namespace bustub {

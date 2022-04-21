@@ -36,7 +36,7 @@ void SeqScanExecutor::Init() {
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   while (iter_ != table_info_->table_->End()) {
     TableIterator cur = iter_++;
-    
+
     Value val = predictor_->Evaluate(&(*cur), &table_info_->schema_);
     if (val.GetAs<bool>()) {
       const Schema *output_schema = plan_->OutputSchema();
