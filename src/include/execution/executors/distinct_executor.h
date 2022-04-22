@@ -13,12 +13,14 @@
 #pragma once
 
 #include <memory>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
-#include "execution/executors/abstract_executor.h"
-#include "execution/plans/distinct_plan.h"
 #include "common/util/hash_util.h"
+#include "execution/executors/abstract_executor.h"
 #include "execution/expressions/column_value_expression.h"
+#include "execution/plans/distinct_plan.h"
 
 namespace bustub {
 
@@ -87,7 +89,7 @@ class DistinctExecutor : public AbstractExecutor {
   const DistinctPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
-   /** Hashset for the preview tuple */
+  /** Hashset for the preview tuple */
   std::unordered_set<DistinctKey> hash_set_;
 };
 }  // namespace bustub

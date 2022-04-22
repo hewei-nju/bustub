@@ -13,17 +13,17 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unordered_map>
 
+#include "common/util/hash_util.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
-#include "execution/plans/hash_join_plan.h"
-#include "storage/table/tuple.h"
-#include "common/util/hash_util.h"
 #include "execution/expressions/column_value_expression.h"
 #include "execution/expressions/constant_value_expression.h"
+#include "execution/plans/hash_join_plan.h"
+#include "storage/table/tuple.h"
 #include "type/value_factory.h"
 
 namespace bustub {

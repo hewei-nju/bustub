@@ -29,9 +29,8 @@ void SeqScanExecutor::Init() {
   iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
 
   // Nested execution, prevent memory leak
-  if (predictor_ != nullptr) {
-    delete predictor_;
-  }
+  delete predictor_;
+
   predictor_ = plan_->GetPredicate();
   if (predictor_ == nullptr) {
     predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));

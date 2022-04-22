@@ -33,9 +33,7 @@ void NestedLoopJoinExecutor::Init() {
   left_executor_->Init();
   right_executor_->Init();
   // Nested execution, prevent memory leak
-  if (predictor_ != nullptr) {
-    delete predictor_;
-  }
+  delete predictor_;
   predictor_ = plan_->Predicate();
   if (predictor_ == nullptr) {
     predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));
@@ -43,8 +41,10 @@ void NestedLoopJoinExecutor::Init() {
 }
 
 bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
-  Tuple left_tuple, right_tuple;
-  RID left_rid, right_rid;
+  Tuple left_tuple;
+  RID left_rid;
+  Tuple right_tuple;
+  RID right_rid;
   while (left_executor_->Next(&left_tuple, &left_rid)) {
     while (right_executor_->Next(&right_tuple, &right_rid)) {
       Value val = predictor_->EvaluateJoin(&left_tuple, plan_->GetLeftPlan()->OutputSchema(), &right_tuple,
