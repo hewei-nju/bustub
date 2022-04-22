@@ -57,7 +57,7 @@ bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
           if (expr->GetTupleIdx() == 0) {
             values.push_back(left_tuple.GetValue(plan_->GetLeftPlan()->OutputSchema(), expr->GetColIdx()));
           } else {
-            values.push_back(right_tuple.GetValue(plan_->GetLeftPlan()->OutputSchema(), expr->GetColIdx()));
+            values.push_back(right_tuple.GetValue(plan_->GetRightPlan()->OutputSchema(), expr->GetColIdx()));
           }
         }
         *tuple = Tuple(values, plan_->OutputSchema());
