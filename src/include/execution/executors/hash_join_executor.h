@@ -14,11 +14,34 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
+#include <unordered_map>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/hash_join_plan.h"
 #include "storage/table/tuple.h"
+#include "common/util/hash_util.h"
+#include "execution/expressions/column_value_expression.h"
+#include "execution/expressions/constant_value_expression.h"
+#include "type/value_factory.h"
+
+namespace bustub {
+
+struct HashJoinKey {
+  Value key_;
+
+  bool operator==(const HashJoinKey &other) const { return key_.CompareEquals(other.key_) == CmpBool::CmpTrue; }
+};
+}  // namespace bustub
+
+namespace std {
+
+template <>
+struct hash<bustub::HashJoinKey> {
+  std::size_t operator()(const bustub::HashJoinKey &key) const { return bustub::HashUtil::HashValue(&key.key_); }
+};
+}  // namespace std
 
 namespace bustub {
 
@@ -37,6 +60,9 @@ class HashJoinExecutor : public AbstractExecutor {
   HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlanNode *plan,
                    std::unique_ptr<AbstractExecutor> &&left_child, std::unique_ptr<AbstractExecutor> &&right_child);
 
+  /** Deconstruct the hash join executor instance */
+  ~HashJoinExecutor() override;
+
   /** Initialize the join */
   void Init() override;
 
@@ -54,6 +80,18 @@ class HashJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
+  /** Left child executor */
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  /** Right child executor */
+  std::unique_ptr<AbstractExecutor> right_executor_;
+  /** Hashmap for the outer(left) table */
+  std::unordered_map<HashJoinKey, std::vector<std::vector<Value>>> hash_map_;
+  /** Left predictor*/
+  mutable const AbstractExpression *left_predictor_;
+  /** Right predictor */
+  mutable const AbstractExpression *right_preidctor_;
+  /** CurPos of the out(left) table tuple */
+  uint32_t cur_pos_;
 };
 
 }  // namespace bustub
