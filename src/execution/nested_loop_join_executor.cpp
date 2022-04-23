@@ -21,7 +21,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const 
       plan_(plan),
       left_executor_(std::move(left_executor)),
       right_executor_(std::move(right_executor)),
-      predictor_(nullptr) {}
+      predictor_(nullptr), left_tuple_(), left_rid_() {}
 
 NestedLoopJoinExecutor::~NestedLoopJoinExecutor() {
   if (predictor_ != plan_->Predicate()) {
@@ -38,35 +38,37 @@ void NestedLoopJoinExecutor::Init() {
   if (predictor_ == nullptr) {
     predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));
   }
+  // left_executor_->Next(&left_tuple_, &left_rid_);
 }
 
 bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
-  Tuple left_tuple;
-  RID left_rid;
   Tuple right_tuple;
   RID right_rid;
-  while (left_executor_->Next(&left_tuple, &left_rid)) {
+
+  while (!(left_rid_ == RID{}) || left_executor_->Next(&left_tuple_, &left_rid_)) {
     while (right_executor_->Next(&right_tuple, &right_rid)) {
-      Value val = predictor_->EvaluateJoin(&left_tuple, plan_->GetLeftPlan()->OutputSchema(), &right_tuple,
-                                           plan_->GetRightPlan()->OutputSchema());
-      if (val.GetAs<bool>()) {
-        std::vector<Value> values;
-        values.reserve(plan_->OutputSchema()->GetColumnCount());
-        for (const auto &col : plan_->OutputSchema()->GetColumns()) {
-          auto expr = reinterpret_cast<const ColumnValueExpression *>(col.GetExpr());
-          if (expr->GetTupleIdx() == 0) {
-            values.push_back(left_tuple.GetValue(plan_->GetLeftPlan()->OutputSchema(), expr->GetColIdx()));
-          } else {
-            values.push_back(right_tuple.GetValue(plan_->GetRightPlan()->OutputSchema(), expr->GetColIdx()));
+        Value val = predictor_->EvaluateJoin(&left_tuple_, plan_->GetLeftPlan()->OutputSchema(), &right_tuple,
+                                              plan_->GetRightPlan()->OutputSchema());
+        if (val.GetAs<bool>()) {
+          std::vector<Value> values;
+          values.reserve(plan_->OutputSchema()->GetColumnCount());
+          for (const auto &col : plan_->OutputSchema()->GetColumns()) {
+            auto expr = reinterpret_cast<const ColumnValueExpression *>(col.GetExpr());
+            if (expr->GetTupleIdx() == 0) {
+              values.push_back(left_tuple_.GetValue(plan_->GetLeftPlan()->OutputSchema(), expr->GetColIdx()));
+            } else {
+              values.push_back(right_tuple.GetValue(plan_->GetRightPlan()->OutputSchema(), expr->GetColIdx()));
+            }
           }
+          *tuple = Tuple(values, plan_->OutputSchema());
+          *rid = left_rid_;
+          return true;
         }
-        *tuple = Tuple(values, plan_->OutputSchema());
-        *rid = left_rid;
-        return true;
       }
-    }
-    right_executor_->Init();
+      left_rid_ = RID{};
+      right_executor_->Init();
   }
+
   return false;
 }
 

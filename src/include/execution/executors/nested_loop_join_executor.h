@@ -68,6 +68,10 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_executor_;
   /** Predictor */
   mutable const AbstractExpression *predictor_;
+  /** Left tuple */
+  Tuple left_tuple_;
+  /** Left rid */
+  RID left_rid_;
 };
 
 }  // namespace bustub
