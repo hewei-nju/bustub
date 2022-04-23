@@ -33,12 +33,13 @@ void NestedLoopJoinExecutor::Init() {
   left_executor_->Init();
   right_executor_->Init();
   // Nested execution, prevent memory leak
-  delete predictor_;
+  if (predictor_ != plan_->Predicate()) {
+    delete predictor_;
+  }
   predictor_ = plan_->Predicate();
   if (predictor_ == nullptr) {
     predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));
   }
-  // left_executor_->Next(&left_tuple_, &left_rid_);
 }
 
 bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
