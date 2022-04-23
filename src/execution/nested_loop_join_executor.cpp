@@ -21,9 +21,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const 
       plan_(plan),
       left_executor_(std::move(left_executor)),
       right_executor_(std::move(right_executor)),
-      predictor_(nullptr),
-      left_tuple_(),
-      left_rid_() {}
+      predictor_(nullptr) {}
 
 NestedLoopJoinExecutor::~NestedLoopJoinExecutor() {
   if (predictor_ != plan_->Predicate()) {
