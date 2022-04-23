@@ -32,7 +32,7 @@ void SeqScanExecutor::Init() {
   if (predictor_ != plan_->GetPredicate()) {
     delete predictor_;
   }
-  
+
   predictor_ = plan_->GetPredicate();
   if (predictor_ == nullptr) {
     predictor_ = new ConstantValueExpression(ValueFactory::GetBooleanValue(true));

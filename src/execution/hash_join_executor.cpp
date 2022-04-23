@@ -23,7 +23,8 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
       right_executor_(std::move(right_child)),
       left_predictor_(nullptr),
       right_predictor_(nullptr),
-      cur_pos_(0), val_({}) {
+      cur_pos_(0),
+      val_({}) {
   left_predictor_ = plan_->LeftJoinKeyExpression();
   right_predictor_ = plan_->RightJoinKeyExpression();
   if (left_predictor_ == nullptr) {
@@ -66,8 +67,8 @@ void HashJoinExecutor::Init() {
 bool HashJoinExecutor::Next(Tuple *tuple, RID *rid) {
   const Schema *right_output_schema = right_executor_->GetOutputSchema();
 
-  if (val_.GetTypeId() == TypeId::INVALID || hash_map_.find(HashJoinKey{val_}) == hash_map_.end()
-    || cur_pos_ >= hash_map_[HashJoinKey{val_}].size()) {
+  if (val_.GetTypeId() == TypeId::INVALID || hash_map_.find(HashJoinKey{val_}) == hash_map_.end() ||
+      cur_pos_ >= hash_map_[HashJoinKey{val_}].size()) {
     while (right_executor_->Next(tuple, rid)) {
       val_ = right_predictor_->Evaluate(tuple, right_output_schema);
       if (hash_map_.find(HashJoinKey{val_}) != hash_map_.end()) {
