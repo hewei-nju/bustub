@@ -89,9 +89,11 @@ class HashJoinExecutor : public AbstractExecutor {
   /** Left predictor*/
   mutable const AbstractExpression *left_predictor_;
   /** Right predictor */
-  mutable const AbstractExpression *right_preidctor_;
+  mutable const AbstractExpression *right_predictor_;
   /** CurPos of the out(left) table tuple */
   uint32_t cur_pos_;
+  /** Use for the key of the inner table */
+  Value val_;
 };
 
 }  // namespace bustub
