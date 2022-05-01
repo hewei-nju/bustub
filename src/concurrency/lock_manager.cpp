@@ -20,16 +20,19 @@ namespace bustub {
 void LockManager::DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue *lock_request_queue) {
   for (const auto &request : lock_request_queue->request_queue_) {
     // RW/WW Conflict
-    if (request.granted_ && (mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE) &&
+    if ((mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE) &&
         txn->GetTransactionId() < request.txn_id_) {
       txns_[request.txn_id_]->SetState(TransactionState::ABORTED);
-      if (request.lock_mode_ == LockMode::EXCLUSIVE) {
-        lock_request_queue->exclusive_ = false;
-      } else {
-        lock_request_queue->shared_count_--;
+      if (request.granted_) {
+        if (request.lock_mode_ == LockMode::EXCLUSIVE) {
+          lock_request_queue->exclusive_ = false;
+        } else {
+          lock_request_queue->shared_count_--;
+        }
       }
     }
   }
+  lock_request_queue->cv_.notify_all();
 }
 
 bool LockManager::LockShared(Transaction *txn, const RID &rid) {
@@ -159,7 +162,7 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   // block if there has an exclusive lock or other shared lock in rid
   if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1) {
     // deadlock prevention
-    DeadlockPrevention(txn, LockMode::SHARED, &lock_request_queue);
+    DeadlockPrevention(txn, LockMode::EXCLUSIVE, &lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
              !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1);
