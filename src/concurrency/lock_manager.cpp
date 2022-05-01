@@ -17,6 +17,22 @@
 
 namespace bustub {
 
+void LockManager::DeadlockPrevention(Transaction *txn, const LockMode& mode, LockRequestQueue &lock_request_queue) {
+  for (const auto &request : lock_request_queue.request_queue_) {
+    // RW/WW Conflict
+    if (request.granted_ && (mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE)
+      && txn->GetTransactionId() < request.txn_id_) {
+      txns_[request.txn_id_]->SetState(TransactionState::ABORTED);
+      if (request.lock_mode_ == LockMode::EXCLUSIVE) {
+        lock_request_queue.exclusive_ = false;
+      } else {
+        lock_request_queue.shared_count_--;
+      }
+    }
+  }
+}
+
+
 bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   std::unique_lock<std::mutex> lock(latch_);
 
@@ -35,13 +51,22 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   }
 
   // put the txn into the request queue
+  txns_.insert({txn->GetTransactionId(), txn});
   LockRequestQueue &lock_request_queue = lock_table_[rid];
   lock_request_queue.request_queue_.emplace_back(txn->GetTransactionId(), LockMode::SHARED);
 
   // block if there has an exclusive lock in rid
   if (lock_request_queue.exclusive_) {
+    // deadlock prevention
+    DeadlockPrevention(txn, LockMode::SHARED, lock_request_queue);
     lock_request_queue.cv_.wait(
         lock, [&]() -> bool { return txn->GetState() == TransactionState::ABORTED || !lock_request_queue.exclusive_; });
+  }
+
+  // check if txn need abort and then throw exception
+  if (txn->GetState() == TransactionState::ABORTED) {
+    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
   }
 
   // add a shared lock
@@ -67,15 +92,24 @@ bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
   }
 
   // put the txn into the request queue
+  txns_.insert({txn->GetTransactionId(), txn});
   LockRequestQueue &lock_request_queue = lock_table_[rid];
   lock_request_queue.request_queue_.emplace_back(txn->GetTransactionId(), LockMode::EXCLUSIVE);
 
   // block if there has an exclusive lock in rid
   if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0) {
+    // deadlock prevention
+    DeadlockPrevention(txn, LockMode::EXCLUSIVE, lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
              !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0);
     });
+  }
+
+  // check if txn need abort and then throw exception
+  if (txn->GetState() == TransactionState::ABORTED) {
+    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
   }
 
   // add an exclusive lock
@@ -111,26 +145,36 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   // update the status of rid's lock request queue
   lock_request_queue.upgrading_ = txn->GetTransactionId();
 
+  // erase the shared lock
+  txn->GetSharedLockSet()->erase(rid);
+  lock_request_queue.shared_count_--;
+  auto iter = std::find_if(
+      lock_request_queue.request_queue_.begin(), lock_request_queue.request_queue_.end(),
+      [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+  assert(iter != lock_request_queue.request_queue_.end());
+  iter->granted_ = false;
+  iter->lock_mode_ = LockMode::EXCLUSIVE;
+
   // block if there has an exclusive lock or other shared lock in rid
   if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1) {
+    // deadlock prevention
+    DeadlockPrevention(txn, LockMode::SHARED, lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
              !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1);
     });
   }
 
-  // erase the shared lock and an exclusive lock
-  txn->GetSharedLockSet()->erase(rid);
-  txn->GetExclusiveLockSet()->emplace(rid);
-  lock_request_queue.exclusive_ = true;
-  auto iter = std::find_if(
-      lock_request_queue.request_queue_.begin(), lock_request_queue.request_queue_.end(),
-      [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
-  assert(iter != lock_request_queue.request_queue_.end());
+  // check if txn need abort and then throw exception
+  if (txn->GetState() == TransactionState::ABORTED) {
+    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
+  }
 
   // update the status of rid's lock request queue and lock mode
+  txn->GetExclusiveLockSet()->insert(rid);
   lock_request_queue.upgrading_ = INVALID_TXN_ID;
-  iter->lock_mode_ = LockMode::EXCLUSIVE;
+  iter->granted_ = true;
 
   return true;
 }
@@ -156,7 +200,7 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
   // check the status of txn: Growing State, READ_COMMITTED, Shared Lock
   if (!(txn->GetState() == TransactionState::GROWING && txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED &&
         iter->lock_mode_ == LockMode::SHARED)) {
-    if (txn->GetState() != TransactionState::ABORTED) {
+    if (txn->GetState() == TransactionState::GROWING) {
       txn->SetState(TransactionState::SHRINKING);
     }
   }

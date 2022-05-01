@@ -75,6 +75,14 @@ class LockManager {
    */
 
   /**
+   * Deadlock prevention. Use Wound-Wait algorithm.
+   * @param txn the transcation requesting the shared lock, exclusive lock or upgrading lock
+   * @param lock_request_queue the lock_request_queue of rid which txn is wanting to requesting a lock
+   * @return void
+  */
+  void DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue &lock_request_queue);
+
+  /**
    * Acquire a lock on RID in shared mode. See [LOCK_NOTE] in header file.
    * @param txn the transaction requesting the shared lock
    * @param rid the RID to be locked in shared mode
@@ -113,6 +121,9 @@ class LockManager {
 
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
+
+  /** txn's id to txn */
+  std::unordered_map<txn_id_t, Transaction *> txns_;
 };
 
 }  // namespace bustub
