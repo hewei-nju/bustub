@@ -79,8 +79,8 @@ class LockManager {
    * @param txn the transcation requesting the shared lock, exclusive lock or upgrading lock
    * @param lock_request_queue the lock_request_queue of rid which txn is wanting to requesting a lock
    * @return void
-  */
-  void DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue &lock_request_queue);
+   */
+  void DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue *lock_request_queue);
 
   /**
    * Acquire a lock on RID in shared mode. See [LOCK_NOTE] in header file.

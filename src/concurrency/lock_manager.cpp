@@ -17,21 +17,20 @@
 
 namespace bustub {
 
-void LockManager::DeadlockPrevention(Transaction *txn, const LockMode& mode, LockRequestQueue &lock_request_queue) {
-  for (const auto &request : lock_request_queue.request_queue_) {
+void LockManager::DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue *lock_request_queue) {
+  for (const auto &request : lock_request_queue->request_queue_) {
     // RW/WW Conflict
-    if (request.granted_ && (mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE)
-      && txn->GetTransactionId() < request.txn_id_) {
+    if (request.granted_ && (mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE) &&
+        txn->GetTransactionId() < request.txn_id_) {
       txns_[request.txn_id_]->SetState(TransactionState::ABORTED);
       if (request.lock_mode_ == LockMode::EXCLUSIVE) {
-        lock_request_queue.exclusive_ = false;
+        lock_request_queue->exclusive_ = false;
       } else {
-        lock_request_queue.shared_count_--;
+        lock_request_queue->shared_count_--;
       }
     }
   }
 }
-
 
 bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   std::unique_lock<std::mutex> lock(latch_);
@@ -58,14 +57,15 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   // block if there has an exclusive lock in rid
   if (lock_request_queue.exclusive_) {
     // deadlock prevention
-    DeadlockPrevention(txn, LockMode::SHARED, lock_request_queue);
+    DeadlockPrevention(txn, LockMode::SHARED, &lock_request_queue);
     lock_request_queue.cv_.wait(
         lock, [&]() -> bool { return txn->GetState() == TransactionState::ABORTED || !lock_request_queue.exclusive_; });
   }
 
   // check if txn need abort and then throw exception
   if (txn->GetState() == TransactionState::ABORTED) {
-    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    lock_request_queue.request_queue_.remove_if(
+        [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
   }
 
@@ -99,7 +99,7 @@ bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
   // block if there has an exclusive lock in rid
   if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0) {
     // deadlock prevention
-    DeadlockPrevention(txn, LockMode::EXCLUSIVE, lock_request_queue);
+    DeadlockPrevention(txn, LockMode::EXCLUSIVE, &lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
              !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0);
@@ -108,7 +108,8 @@ bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
 
   // check if txn need abort and then throw exception
   if (txn->GetState() == TransactionState::ABORTED) {
-    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    lock_request_queue.request_queue_.remove_if(
+        [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
   }
 
@@ -158,7 +159,7 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   // block if there has an exclusive lock or other shared lock in rid
   if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1) {
     // deadlock prevention
-    DeadlockPrevention(txn, LockMode::SHARED, lock_request_queue);
+    DeadlockPrevention(txn, LockMode::SHARED, &lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
              !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1);
@@ -167,7 +168,8 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
 
   // check if txn need abort and then throw exception
   if (txn->GetState() == TransactionState::ABORTED) {
-    lock_request_queue.request_queue_.remove_if([&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
+    lock_request_queue.request_queue_.remove_if(
+        [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
   }
 
