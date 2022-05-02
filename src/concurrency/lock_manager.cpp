@@ -18,7 +18,7 @@
 namespace bustub {
 
 void LockManager::DeadlockPrevention(Transaction *txn, const LockMode &mode, LockRequestQueue *lock_request_queue) {
-  for (const auto &request : lock_request_queue->request_queue_) {
+  for (auto &request : lock_request_queue->request_queue_) {
     // RW/WW Conflict
     if ((mode == LockMode::EXCLUSIVE || request.lock_mode_ == LockMode::EXCLUSIVE) &&
         txn->GetTransactionId() < request.txn_id_) {
@@ -30,6 +30,7 @@ void LockManager::DeadlockPrevention(Transaction *txn, const LockMode &mode, Loc
           lock_request_queue->shared_count_--;
         }
       }
+      request.granted_ = false;
     }
   }
   lock_request_queue->cv_.notify_all();
@@ -197,7 +198,9 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
       lock_request_queue.request_queue_.begin(), lock_request_queue.request_queue_.end(),
       [&txn](const LockRequest &lock_request) -> bool { return lock_request.txn_id_ == txn->GetTransactionId(); });
   assert(iter != lock_request_queue.request_queue_.end());
-  lock_request_queue.exclusive_ = false;
+  if (iter->granted_ && iter->lock_mode_ == LockMode::EXCLUSIVE) {
+    lock_request_queue.exclusive_ = false;
+  }
   if (iter->lock_mode_ == LockMode::SHARED) {
     lock_request_queue.shared_count_--;
   }
