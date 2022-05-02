@@ -57,11 +57,6 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
       Tuple key = tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
       index_info->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
     }
-
-    // Unlock if isolation level is not REPEATABLE_READ
-    if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
-      exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), *rid);
-    }
   }
 
   return ret;
