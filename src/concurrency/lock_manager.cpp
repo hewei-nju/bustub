@@ -39,6 +39,11 @@ void LockManager::DeadlockPrevention(Transaction *txn, const LockMode &mode, Loc
 bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   std::unique_lock<std::mutex> lock(latch_);
 
+  // If txn has a shared lock on rid
+  if (txn->GetSharedLockSet()->find(rid) != txn->GetSharedLockSet()->end()) {
+    return true;
+  }
+
   // check the 2 PL state
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
@@ -87,6 +92,11 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
 
 bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
   std::unique_lock<std::mutex> lock(latch_);
+
+  // If txn has an exclusive lock on rid
+  if (txn->GetExclusiveLockSet()->find(rid) != txn->GetExclusiveLockSet()->end()) {
+    return true;
+  }
 
   // check the 2 PL state
   if (txn->GetState() == TransactionState::SHRINKING) {
@@ -161,12 +171,12 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   iter->lock_mode_ = LockMode::EXCLUSIVE;
 
   // block if there has an exclusive lock or other shared lock in rid
-  if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1) {
+  if (lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0) {
     // deadlock prevention
     DeadlockPrevention(txn, LockMode::EXCLUSIVE, &lock_request_queue);
     lock_request_queue.cv_.wait(lock, [&]() -> bool {
       return txn->GetState() == TransactionState::ABORTED ||
-             !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 1);
+             !(lock_request_queue.exclusive_ || lock_request_queue.shared_count_ > 0);
     });
   }
 
@@ -201,7 +211,7 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
   if (iter->granted_ && iter->lock_mode_ == LockMode::EXCLUSIVE) {
     lock_request_queue.exclusive_ = false;
   }
-  if (iter->lock_mode_ == LockMode::SHARED) {
+  if (iter->granted_ && iter->lock_mode_ == LockMode::SHARED) {
     lock_request_queue.shared_count_--;
   }
 
@@ -214,13 +224,8 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
   }
 
   // notify other block txn in the lock request queue
-  if (iter->lock_mode_ == LockMode::EXCLUSIVE ||
-      (iter->lock_mode_ == LockMode::SHARED && lock_request_queue.shared_count_ == 0)) {
-    lock_request_queue.request_queue_.erase(iter);
-    lock_request_queue.cv_.notify_all();
-  } else {
-    lock_request_queue.request_queue_.erase(iter);
-  }
+  lock_request_queue.request_queue_.erase(iter);
+  lock_request_queue.cv_.notify_all();
 
   return true;
 }
