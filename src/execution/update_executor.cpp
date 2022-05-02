@@ -50,8 +50,10 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
             dest_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
         index_info->index_->DeleteEntry(src_key, *rid, exec_ctx_->GetTransaction());
         index_info->index_->InsertEntry(dest_key, *rid, exec_ctx_->GetTransaction());
-        exec_ctx_->GetTransaction()->AppendTableWriteRecord(
-            {*rid, table_info_->oid_, WType::UPDATE, *tuple, index_info->index_oid_, exec_ctx_->GetCatalog()});
+        IndexWriteRecord index_write_record = {*rid,       table_info_->oid_,      WType::UPDATE,
+                                               dest_tuple, index_info->index_oid_, exec_ctx_->GetCatalog()};
+        index_write_record.old_tuple_ = *tuple;
+        exec_ctx_->GetTransaction()->AppendTableWriteRecord(index_write_record);
       }
     }
   }
