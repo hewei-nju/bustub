@@ -52,11 +52,6 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
         index_info->index_->InsertEntry(dest_key, *rid, exec_ctx_->GetTransaction());
       }
     }
-
-    // Unlock if isolation level is not REPEATABLE_READ
-    if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
-      exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), *rid);
-    }
   }
 
   return ret;
