@@ -48,6 +48,8 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     for (auto &index_info : index_infos_) {
       Tuple key = tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
       index_info->index_->DeleteEntry(key, *rid, exec_ctx_->GetTransaction());
+      exec_ctx_->GetTransaction()->AppendTableWriteRecord(
+          {*rid, table_info_->oid_, WType::DELETE, *tuple, index_info->index_oid_, exec_ctx_->GetCatalog()});
     }
   }
 
