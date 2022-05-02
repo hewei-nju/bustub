@@ -45,13 +45,25 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     }
   }
 
-  // Update indexs
-  if (ret && !index_infos_.empty()) {
+  if (ret) {
+    // try to get a exclusive lock to add the insert record
+    if (!exec_ctx_->GetLockManager()->LockExclusive(exec_ctx_->GetTransaction(), *rid)) {
+      exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
+      return false;
+    }
+
+    // Update indexs
     for (auto &index_info : index_infos_) {
       Tuple key = tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
       index_info->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
     }
+  
+    // Unlock if isolation level is not REPEATABLE_READ
+    if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
+      exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), *rid);
+    }
   }
+
   return ret;
 }
 

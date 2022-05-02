@@ -41,8 +41,20 @@ void SeqScanExecutor::Init() {
 
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   while (iter_ != table_info_->table_->End()) {
-    TableIterator cur = iter_++;
+    // According to the isolation level to decide to get a lock
+    switch (exec_ctx_->GetTransaction()->GetIsolationLevel()) {
+    case IsolationLevel::READ_UNCOMMITTED:
+      break;
+    case IsolationLevel::READ_COMMITTED:
+    case IsolationLevel::REPEATABLE_READ:
+      if (!exec_ctx_->GetLockManager()->LockShared(exec_ctx_->GetTransaction(), iter_->GetRid())) {
+        exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
+        return false;
+      }
+      break;
+    }
 
+    TableIterator cur = iter_++;
     Value val = predictor_->Evaluate(&(*cur), &table_info_->schema_);
     if (val.GetAs<bool>()) {
       const Schema *output_schema = plan_->OutputSchema();
@@ -55,7 +67,17 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
 
       *tuple = Tuple(values, output_schema);
       *rid = cur->GetRid();
+
+      // if there has a shared lock in IsolationLevel::READ_COMMITTED
+      if(exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED){
+        exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), cur->GetRid());
+      }
       return true;
+    }
+
+    // if there has a shared lock in IsolationLevel::READ_COMMITTED
+    if(exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED){
+        exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), cur->GetRid());
     }
   }
   return false;

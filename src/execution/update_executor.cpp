@@ -27,9 +27,22 @@ void UpdateExecutor::Init() { child_executor_->Init(); }
 bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   bool ret = false;
   if (child_executor_->Next(tuple, rid)) {
+    // Check the tuple is already has a shared lock and then try to upgrade to exclusive lock
+    if (exec_ctx_->GetTransaction()->IsSharedLocked(*rid)) {
+      if (!exec_ctx_->GetLockManager()->LockUpgrade(exec_ctx_->GetTransaction(), *rid)) {
+        exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
+        return false;
+      }
+    } else if (!exec_ctx_->GetTransaction()->IsExclusiveLocked(*rid)) {
+      if (!exec_ctx_->GetLockManager()->LockExclusive(exec_ctx_->GetTransaction(), *rid)) {
+        exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
+        return false;
+      }
+    }
+
     Tuple dest_tuple = GenerateUpdatedTuple(*tuple);
     ret = table_info_->table_->UpdateTuple(dest_tuple, *rid, exec_ctx_->GetTransaction());
-    if (ret && !index_infos_.empty()) {
+    if (ret) {
       for (auto &index_info : index_infos_) {
         Tuple src_key =
             tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
@@ -39,7 +52,13 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
         index_info->index_->InsertEntry(dest_key, *rid, exec_ctx_->GetTransaction());
       }
     }
+
+    // Unlock if isolation level is not REPEATABLE_READ
+    if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
+      exec_ctx_->GetLockManager()->Unlock(exec_ctx_->GetTransaction(), *rid);
+    }
   }
+
   return ret;
 }
 
