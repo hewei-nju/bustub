@@ -29,7 +29,7 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   bool ret = false;
   if (child_executor_->Next(tuple, rid)) {
     // Check the tuple is already has a shared lock and then try to upgrade to exclusive lock
-     if (exec_ctx_->GetTransaction()->IsSharedLocked(*rid)) {
+    if (exec_ctx_->GetTransaction()->IsSharedLocked(*rid)) {
       if (!exec_ctx_->GetLockManager()->LockUpgrade(exec_ctx_->GetTransaction(), *rid)) {
         exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
         return false;
